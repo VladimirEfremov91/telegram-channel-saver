@@ -12,6 +12,7 @@ from src.config import MESSAGES_BATCH_SIZE, BATCH_DELAY, SAVE_INTERVAL, MAX_RETR
 from src.channels import get_active_channel
 from src.database import save_database
 from src.media import download_media_safely
+from src.formatting import entities_to_dicts
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +187,7 @@ async def save_channel_messages(client, db, db_path, limit=None, force_redownloa
                             'post_author': getattr(message, 'post_author', None),  # Get channel post author
                             'text': message.text,
                             'raw_text': message.raw_text,
+                            'entities': entities_to_dicts(message.entities),  # Store native Telegram entities
                             'text_html': getattr(message, 'text_html', message.text),  # Get HTML representation
                             'out': message.out,
                             'mentioned': message.mentioned,

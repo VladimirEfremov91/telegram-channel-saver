@@ -17,6 +17,7 @@ from src.users import save_channel_users, show_channel_users_stats, list_saved_u
 from src.messages import save_channel_messages, search_messages, browse_messages
 from src.media import download_video_messages, list_downloaded_videos
 from src.export import export_menu
+from src.search_replace import search_replace_messages, restore_edited_messages, list_edited_messages
 
 class ChannelSaver:
     """Main application class for Telegram Channel Saver"""
@@ -213,13 +214,16 @@ class ChannelSaver:
                 print("11. List saved users")
                 print("12. Search messages")
                 print("13. Browse message index")
-                print("14. Download videos")
-                print("15. List downloaded videos")
-                print("16. Export messages")
-                print("17. Logout")
-                print("18. Exit")
-                
-                choice = input("\nEnter your choice (1-18): ")
+                print("14. Search and replace in messages")
+                print("15. Restore edited messages")
+                print("16. List edited messages")
+                print("17. Download videos")
+                print("18. List downloaded videos")
+                print("19. Export messages")
+                print("20. Logout")
+                print("21. Exit")
+
+                choice = input("\nEnter your choice (1-21): ")
                 
                 if choice == '1':
                     me = await self.client.get_me()
@@ -309,13 +313,19 @@ class ChannelSaver:
                 elif choice == '13':
                     await browse_messages(self.db)
                 elif choice == '14':
+                    await search_replace_messages(self.db, self.db_path, self.client)
+                elif choice == '15':
+                    await restore_edited_messages(self.db, self.db_path, self.client)
+                elif choice == '16':
+                    list_edited_messages(self.db)
+                elif choice == '17':
                     print("\nVideo Download Options:")
                     print("1. Download all videos")
                     print("2. Download video circles only (round videos)")
                     print("3. Back to main menu")
-                    
+
                     video_choice = input("\nEnter choice (1-3): ")
-                    
+
                     if video_choice == '1':
                         limit = input("\nEnter number of videos to download (or press Enter for all): ")
                         limit = int(limit) if limit.strip() else None
@@ -326,11 +336,11 @@ class ChannelSaver:
                         await download_video_messages(self.client, self.db, self.db_path, limit=limit, round_videos_only=True)
                     elif video_choice == '3':
                         continue
-                elif choice == '15':
+                elif choice == '18':
                     list_downloaded_videos(self.db)
-                elif choice == '16':
+                elif choice == '19':
                     await export_menu(self.db, self.client)
-                elif choice == '17':
+                elif choice == '20':
                     await self.client.log_out()
                     print("\nLogged out successfully!")
                     if self.phone in self.db['sessions']:
@@ -339,7 +349,7 @@ class ChannelSaver:
                     self.db['active_channel'] = None
                     save_database(self.db_path, self.db)
                     break
-                elif choice == '18':
+                elif choice == '21':
                     break
                 else:
                     print("\nInvalid choice!")

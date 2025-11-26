@@ -21,9 +21,28 @@ Telegram Channel Saver is a Python tool for saving and analyzing Telegram channe
   ├── requirements.txt    # Project dependencies
   ├── saver.py            # Main application code
   ├── CLAUDE.md           # Best practices and code guidelines
+  ├── tools/              # Testing tools and utilities (Claude's workspace)
+  │   ├── venv/           # Separate virtual environment for tools
+  │   └── *.py            # Test scripts and utilities
   └── temp/               # Storage directory for data and sessions
       └── channel_saver/  # Application data storage location
 ```
+
+# Claude AI Development Rules
+
+## API Documentation
+- **Always use context7** to get the most recent API documentation before implementing features
+- Do not rely on training data for library APIs - fetch current docs via context7
+- When working with Telethon, Telegram API, or any external library, query context7 first
+
+## Tools Directory
+- Claude can create test tools and utilities in the `tools/` directory
+- Use the separate venv located at `tools/venv/` for running test scripts
+- Activate with: `source tools/venv/bin/activate`
+- Install dependencies in tools venv: `tools/venv/bin/pip install <package>`
+- Run tools with: `tools/venv/bin/python tools/<script>.py`
+- Tools are for testing pipelines, debugging, and validating implementations
+- Keep tools separate from main application code
 
 # Clean Code Best Practices
 
