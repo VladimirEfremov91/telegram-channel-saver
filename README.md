@@ -8,7 +8,7 @@
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 ![Claude](https://img.shields.io/badge/Built_with-Claude_AI-CC785C?style=for-the-badge&logo=anthropic&logoColor=white)
 
-**A powerful demonstration of building personal Telegram client applications with Telethon**
+**Build your own Telegram client with Telethon**
 
 *The foundation for the first Telegram-CMS system*
 
@@ -27,23 +27,7 @@ This project demonstrates how to build a **personal Telegram client** using the 
 - Creating backup and archival systems for Telegram data
 - Understanding MTProto protocol interactions
 
-> **Vision**: This codebase is the foundation for my concept of a **Telegram-CMS** - a content management system specifically designed for Telegram channels and groups, enabling publishers to manage, edit, and organize their content like never before.
-
----
-
-## Tech Stack
-
-<div align="center">
-
-| Technology | Purpose |
-|------------|---------|
-| ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white) | Core language |
-| ![Telethon](https://img.shields.io/badge/Telethon-MTProto_Client-FF6B6B?style=flat-square) | Telegram API interaction |
-| ![OpenRouter](https://img.shields.io/badge/OpenRouter-AI_API-6366F1?style=flat-square) | AI-powered image analysis |
-| ![JSON](https://img.shields.io/badge/JSON-Database-000000?style=flat-square&logo=json&logoColor=white) | Local data storage |
-| ![asyncio](https://img.shields.io/badge/asyncio-Async_IO-306998?style=flat-square) | Asynchronous operations |
-
-</div>
+> **Vision**: This codebase is the foundation for a **Telegram-CMS** - a content management system for Telegram channels and groups, enabling publishers to manage, edit, and organize their content.
 
 ---
 
