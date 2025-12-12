@@ -182,9 +182,11 @@ async def format_message_for_export(msg, db, channel_id, client=None):
     
     return formatted_msg
 
-async def export_channel_messages(db, channel_id, channel_title, export_dir="exports", client=None):
+async def export_channel_messages(db, channel_id, channel_title, export_dir="exports", client=None, keyword=None):
     """Export all messages from a channel to a text file"""
     channel_id = str(channel_id)
+    keyword = keyword.strip() if keyword else None
+    keyword_lower = keyword.lower() if keyword else None
     
     # Create export directory if it doesn't exist
     if not os.path.exists(export_dir):
@@ -216,6 +218,24 @@ async def export_channel_messages(db, channel_id, channel_title, export_dir="exp
             messages.append((datetime.max, msg))
     
     messages.sort(key=lambda x: x[0])
+
+    original_count = len(messages)
+
+    if keyword_lower:
+        def matches_keyword(message):
+            for field in ['text', 'raw_text']:
+                value = message.get(field)
+                if isinstance(value, str) and keyword_lower in value.lower():
+                    return True
+            return False
+
+        messages = [(date_obj, msg) for date_obj, msg in messages if matches_keyword(msg)]
+
+        if not messages:
+            print(f"\nNo messages containing \"{keyword}\" were found in {channel_title}.")
+            return None
+
+        print(f"\nFound {len(messages)} message(s) containing \"{keyword}\" out of {original_count} total.")
     
     # Write messages to file
     message_count = 0
@@ -223,6 +243,8 @@ async def export_channel_messages(db, channel_id, channel_title, export_dir="exp
         # Write header
         f.write(f"Export of channel: {channel_title} (ID: {channel_id})\n")
         f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        if keyword:
+            f.write(f"Filter keyword: {keyword}\n")
         f.write(f"Total messages: {len(messages)}\n")
         f.write("-" * 80 + "\n\n")
         
@@ -236,7 +258,8 @@ async def export_channel_messages(db, channel_id, channel_title, export_dir="exp
             if message_count % 100 == 0:
                 print(f"Exported {message_count}/{len(messages)} messages...")
     
-    print(f"\nExport complete: {message_count} messages exported to {filename}")
+    completion_note = "messages" if not keyword else f"message(s) containing \"{keyword}\""
+    print(f"\nExport complete: {message_count} {completion_note} exported to {filename}")
     return filename
 
 async def export_user_messages(db, channel_id, channel_title, user_id, export_dir="exports", client=None):
@@ -408,9 +431,10 @@ async def export_menu(db, client=None):
     print("1. Export all messages")
     print("2. Export messages from a specific user")
     print("3. Export individual message files with AI media analysis")
+    print("4. Export messages containing a keyword")
     print("0. Cancel")
-    
-    choice = input("\nEnter your choice (0-3): ")
+
+    choice = input("\nEnter your choice (0-4): ")
     
     if choice == '1':
         # Export all messages
@@ -480,6 +504,15 @@ async def export_menu(db, client=None):
                 print(f"\n✗ Export failed: {result['error']}")
         else:
             print("\nExport cancelled.")
+    elif choice == '4':
+        keyword = input("\nEnter the keyword to filter messages: ").strip()
+
+        if not keyword:
+            print("\nKeyword cannot be empty!")
+            return
+
+        print(f"\nExporting messages from {channel_title} containing '{keyword}'...")
+        await export_channel_messages(db, channel_id, channel_title, client=client, keyword=keyword)
     elif choice == '0':
         return
     else:
