@@ -13,12 +13,14 @@ from src.channels import get_active_channel
 from src.database import save_database
 from src.media import download_media_safely
 from src.formatting import entities_to_dicts
+from telethon import types
 
 logger = logging.getLogger(__name__)
 
 async def save_channel_messages(client, db, db_path, limit=None, force_redownload=False, 
                               min_id=None, max_id=None, recent_count=None,
-                              download_media=True, filter_word=None):
+                              download_media=True, filter_word=None,
+                              download_photos=True, download_videos=True):
     """
     Save messages from active channel with support for ID ranges and rate limiting
     
@@ -33,6 +35,8 @@ async def save_channel_messages(client, db, db_path, limit=None, force_redownloa
         recent_count: Number of most recent messages to fetch
         download_media: Whether to download media (videos, photos, etc.) from messages
         filter_word: Optional keyword to filter messages (case-insensitive)
+        download_photos: Whether to download photo media
+        download_videos: Whether to download video media
         
     Returns:
         bool: True if successful, False otherwise
@@ -104,6 +108,9 @@ async def save_channel_messages(client, db, db_path, limit=None, force_redownloa
         print(f"Messages in Range: {total_in_range}")
         print(f"Messages to Process: {total}")
         print(f"Media Download: {'Enabled' if download_media else 'Disabled'}")
+        if download_media:
+            print(f"- Photos: {'Enabled' if download_photos else 'Disabled'}")
+            print(f"- Videos: {'Enabled' if download_videos else 'Disabled'}")
         print(f"Batch Size: {MESSAGES_BATCH_SIZE} messages")
         print(f"Delay between batches: {BATCH_DELAY} seconds")
         print(f"Rate Limit: Maximum 100 messages per request")
@@ -252,90 +259,101 @@ async def save_channel_messages(client, db, db_path, limit=None, force_redownloa
                         
                         # Download media if requested and message has media
                         if download_media and message.media:
-                            try:
-                                # Check if we already have the media downloaded
-                                existing_media_path = None
-                                if msg_id in db['messages'][channel_id]:
-                                    existing_media_path = db['messages'][channel_id][msg_id].get('media_file_path')
-                                
-                                if (not existing_media_path or 
-                                    not os.path.exists(existing_media_path) or 
-                                    force_redownload):
+                            is_photo = bool(getattr(message, 'photo', None)) or isinstance(message.media, types.MessageMediaPhoto)
+                            mime_type = ''
+                            has_video_attribute = False
+                            if hasattr(message.media, 'document') and message.media.document:
+                                mime_type = getattr(message.media.document, 'mime_type', '') or ''
+                                has_video_attribute = any(
+                                    isinstance(attr, types.DocumentAttributeVideo)
+                                    for attr in getattr(message.media.document, 'attributes', [])
+                                )
+                            is_video = (mime_type.startswith('video/') or has_video_attribute)
+
+                            # Skip based on media type preferences
+                            if (is_photo and not download_photos) or (is_video and not download_videos):
+                                print(f"Skipping media for message #{message.id}: downloads disabled for {'photos' if is_photo else 'videos'}")
+                                media_skipped += 1
+                            else:
+                                try:
+                                    # Check if we already have the media downloaded
+                                    existing_media_path = None
+                                    if msg_id in db['messages'][channel_id]:
+                                        existing_media_path = db['messages'][channel_id][msg_id].get('media_file_path')
                                     
-                                    # Create a filename based on message ID and date
-                                    filename = f"media_{message.id}_{message.date.strftime('%Y%m%d_%H%M%S')}"
-                                    
-                                    # Download the media
-                                    print(f"Downloading media from message #{message.id}...")
-                                    
-                                    # Get media file size if available
-                                    file_size = None
-                                    if hasattr(message.media, 'document'):
-                                        file_size = getattr(message.media.document, 'size', None)
-                                        if file_size:
-                                            size_mb = file_size / (1024 * 1024)
-                                            print(f"Media size: {size_mb:.2f} MB")
-                                    
-                                    # Use our enhanced download method
-                                    download_result = await download_media_safely(
-                                        client=client,
-                                        message=message,
-                                        filename=filename,
-                                        file_size=file_size
-                                    )
-                                    
-                                    if download_result['success']:
-                                        file_path = download_result['file_path']
-                                        print(f"Media saved to: {file_path}")
-                                        # Update message dict with media path
-                                        message_dict['media_file_path'] = file_path
-                                        media_downloaded += 1
+                                    if (not existing_media_path or 
+                                        not os.path.exists(existing_media_path) or 
+                                        force_redownload):
                                         
-                                        # Also store in videos database if it's a video
-                                        is_video = False
-                                        mime_type = getattr(message.media.document, 'mime_type', '') if hasattr(message.media, 'document') else ''
-                                        if mime_type and 'video' in mime_type:
-                                            is_video = True
+                                        # Create a filename based on message ID and date
+                                        filename = f"media_{message.id}_{message.date.strftime('%Y%m%d_%H%M%S')}"
+                                        
+                                        # Download the media
+                                        print(f"Downloading media from message #{message.id}...")
+                                        
+                                        # Get media file size if available
+                                        file_size = None
+                                        if hasattr(message.media, 'document'):
+                                            file_size = getattr(message.media.document, 'size', None)
+                                            if file_size:
+                                                size_mb = file_size / (1024 * 1024)
+                                                print(f"Media size: {size_mb:.2f} MB")
+                                        
+                                        # Use our enhanced download method
+                                        download_result = await download_media_safely(
+                                            client=client,
+                                            message=message,
+                                            filename=filename,
+                                            file_size=file_size
+                                        )
+                                        
+                                        if download_result['success']:
+                                            file_path = download_result['file_path']
+                                            print(f"Media saved to: {file_path}")
+                                            # Update message dict with media path
+                                            message_dict['media_file_path'] = file_path
+                                            media_downloaded += 1
                                             
-                                        if is_video:
-                                            # Initialize videos dict if needed
-                                            if 'videos' not in db:
-                                                db['videos'] = {}
-                                            if channel_id not in db['videos']:
-                                                db['videos'][channel_id] = {}
-                                                
-                                            # Add video information
-                                            video_info = {
-                                                'id': message.id,
-                                                'date': str(message.date),
-                                                'from_id': message_dict['from_id'],
-                                                'media_type': message_dict['media_type'],
-                                                'file_path': file_path,
-                                                'download_date': str(datetime.now()),
-                                                'file_size': os.path.getsize(file_path) if os.path.exists(file_path) else None,
-                                                'duration': getattr(message.media.document, 'duration', None) if hasattr(message.media, 'document') else None,
-                                                'mime_type': mime_type,
-                                                'size': getattr(message.media.document, 'size', None) if hasattr(message.media, 'document') else None,
-                                            }
-                                            db['videos'][channel_id][msg_id] = video_info
+                                            # Also store in videos database if it's a video
+                                            if is_video:
+                                                # Initialize videos dict if needed
+                                                if 'videos' not in db:
+                                                    db['videos'] = {}
+                                                if channel_id not in db['videos']:
+                                                    db['videos'][channel_id] = {}
+                                                    
+                                                # Add video information
+                                                video_info = {
+                                                    'id': message.id,
+                                                    'date': str(message.date),
+                                                    'from_id': message_dict['from_id'],
+                                                    'media_type': message_dict['media_type'],
+                                                    'file_path': file_path,
+                                                    'download_date': str(datetime.now()),
+                                                    'file_size': os.path.getsize(file_path) if os.path.exists(file_path) else None,
+                                                    'duration': getattr(message.media.document, 'duration', None) if hasattr(message.media, 'document') else None,
+                                                    'mime_type': mime_type,
+                                                    'size': getattr(message.media.document, 'size', None) if hasattr(message.media, 'document') else None,
+                                                }
+                                                db['videos'][channel_id][msg_id] = video_info
+                                        else:
+                                            # Handle download failure
+                                            print(f"Failed to download media: {download_result['error']}")
+                                            logger.warning(f"Media download failed for message {message.id}: {download_result['error']}")
+                                            media_errors += 1
+                                        
+                                        # Add delay between media downloads to avoid rate limits
+                                        await asyncio.sleep(MEDIA_DOWNLOAD_DELAY)
                                     else:
-                                        # Handle download failure
-                                        print(f"Failed to download media: {download_result['error']}")
-                                        logger.warning(f"Media download failed for message {message.id}: {download_result['error']}")
-                                        media_errors += 1
-                                    
-                                    # Add delay between media downloads to avoid rate limits
-                                    await asyncio.sleep(MEDIA_DOWNLOAD_DELAY)
-                                else:
-                                    # Media already downloaded
-                                    message_dict['media_file_path'] = existing_media_path
-                                    print(f"Media for message #{message.id} already downloaded, skipping...")
-                                    media_skipped += 1
-                                    
-                            except Exception as media_error:
-                                print(f"Error downloading media from message #{message.id}: {str(media_error)}")
-                                logger.error(f"Error downloading media: {str(media_error)}")
-                                media_errors += 1
+                                        # Media already downloaded
+                                        message_dict['media_file_path'] = existing_media_path
+                                        print(f"Media for message #{message.id} already downloaded, skipping...")
+                                        media_skipped += 1
+                                        
+                                except Exception as media_error:
+                                    print(f"Error downloading media from message #{message.id}: {str(media_error)}")
+                                    logger.error(f"Error downloading media: {str(media_error)}")
+                                    media_errors += 1
                         
                         if msg_id in db['messages'][channel_id] and not force_redownload:
                             # Check if message needs update
