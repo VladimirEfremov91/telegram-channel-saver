@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 async def save_channel_messages(client, db, db_path, limit=None, force_redownload=False, 
                               min_id=None, max_id=None, recent_count=None,
-                              download_media=True):
+                              download_media=True, filter_word=None):
     """
     Save messages from active channel with support for ID ranges and rate limiting
     
@@ -32,6 +32,7 @@ async def save_channel_messages(client, db, db_path, limit=None, force_redownloa
         max_id: Maximum message ID to fetch (exclusive)
         recent_count: Number of most recent messages to fetch
         download_media: Whether to download media (videos, photos, etc.) from messages
+        filter_word: Optional keyword to filter messages (case-insensitive)
         
     Returns:
         bool: True if successful, False otherwise
@@ -94,6 +95,8 @@ async def save_channel_messages(client, db, db_path, limit=None, force_redownloa
         else:
             total = total_in_range
         
+        filter_word_normalized = filter_word.strip().lower() if filter_word else None
+
         print(f"\nChannel Information:")
         print(f"First Message in Channel: #{first_message.id} ({first_message.date})")
         print(f"Last Message in Channel: #{last_message.id} ({last_message.date})")
@@ -104,6 +107,7 @@ async def save_channel_messages(client, db, db_path, limit=None, force_redownloa
         print(f"Batch Size: {MESSAGES_BATCH_SIZE} messages")
         print(f"Delay between batches: {BATCH_DELAY} seconds")
         print(f"Rate Limit: Maximum 100 messages per request")
+        print(f"Text Filter: {filter_word if filter_word_normalized else 'Disabled'}")
         
         confirm = input("\nProceed with message download? (y/N): ").lower()
         if confirm != 'y':
@@ -117,6 +121,7 @@ async def save_channel_messages(client, db, db_path, limit=None, force_redownloa
         saved = 0
         updated = 0
         skipped = 0
+        skipped_by_filter = 0
         errors = 0
         retry_count = 0
         processed = 0
@@ -178,6 +183,12 @@ async def save_channel_messages(client, db, db_path, limit=None, force_redownloa
                 # Process batch
                 for message in batch_messages:
                     try:
+                        if filter_word_normalized:
+                            combined_text = f"{message.text or ''}\n{message.raw_text or ''}".lower()
+                            if filter_word_normalized not in combined_text:
+                                skipped_by_filter += 1
+                                continue
+
                         # Create message dict with all available fields
                         message_dict = {
                             'id': message.id,
@@ -350,7 +361,8 @@ async def save_channel_messages(client, db, db_path, limit=None, force_redownloa
                 # Update progress
                 current_time = datetime.now()
                 elapsed = current_time - start_time
-                speed = (saved + updated + skipped) / elapsed.total_seconds() if elapsed.total_seconds() > 0 else 0
+                completed = saved + updated + skipped + skipped_by_filter
+                speed = completed / elapsed.total_seconds() if elapsed.total_seconds() > 0 else 0
                 
                 # Save database periodically
                 if (current_time - last_save_time).total_seconds() > SAVE_INTERVAL:
@@ -358,9 +370,10 @@ async def save_channel_messages(client, db, db_path, limit=None, force_redownloa
                     last_save_time = current_time
                 
                 # Update display
-                print("\033[F\033[K" * 7)
-                print(f"Progress: {saved + updated + skipped}/{total} messages ({current_time - start_time})")
-                print(f"New: {saved} | Updated: {updated} | Skipped: {skipped} | Errors: {errors}")
+                print("\033[F\033[K" * 8)
+                print(f"Progress: {completed}/{total} messages ({current_time - start_time})")
+                print(f"New: {saved} | Updated: {updated} | Skipped (unchanged): {skipped}")
+                print(f"Skipped by filter: {skipped_by_filter} | Errors: {errors}")
                 print(f"Speed: {speed:.1f} messages/second")
                 print(f"Elapsed: {str(elapsed).split('.')[0]}")
                 print(f"Current Batch: {len(batch_messages)} messages (ID: {current_id})")
@@ -391,16 +404,18 @@ async def save_channel_messages(client, db, db_path, limit=None, force_redownloa
         # Final statistics
         end_time = datetime.now()
         elapsed = end_time - start_time
-        speed = (saved + updated + skipped) / elapsed.total_seconds() if elapsed.total_seconds() > 0 else 0
+        completed = saved + updated + skipped + skipped_by_filter
+        speed = completed / elapsed.total_seconds() if elapsed.total_seconds() > 0 else 0
         
         print("\n" + "="*50)
         print("Download Completed!")
         print("="*50)
         print(f"\nFinal Statistics:")
-        print(f"Total Processed: {saved + updated + skipped}")
+        print(f"Total Processed: {completed}")
         print(f"New Messages: {saved}")
         print(f"Updated Messages: {updated}")
         print(f"Skipped Messages: {skipped}")
+        print(f"Skipped by Filter: {skipped_by_filter}")
         print(f"Errors: {errors}")
         print(f"Total Retries: {retry_count}")
         print(f"\nMedia Statistics:")
