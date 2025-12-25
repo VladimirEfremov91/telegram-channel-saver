@@ -273,6 +273,10 @@ async def save_channel_messages(client, db, db_path, limit=None, force_redownloa
                             # Skip based on media type preferences
                             if (is_photo and not download_photos) or (is_video and not download_videos):
                                 print(f"Skipping media for message #{message.id}: downloads disabled for {'photos' if is_photo else 'videos'}")
+                                if msg_id in db['messages'][channel_id]:
+                                    existing_media_path = db['messages'][channel_id][msg_id].get('media_file_path')
+                                    if existing_media_path:
+                                        message_dict['media_file_path'] = existing_media_path
                                 media_skipped += 1
                             else:
                                 try:
