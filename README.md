@@ -276,6 +276,16 @@ Options:
    → Choose export type
 ```
 
+### Filter downloads by keyword
+
+When saving channel messages (menu option **10**), you can now limit which posts are stored:
+
+- After choosing a download mode (new only, redownload all, recent, or ID range), enter a keyword when prompted.
+- Message text is matched case-insensitively against both the rendered text and raw_text fields.
+- Leave the prompt blank to disable filtering and save every message in the selected range.
+
+Filtered-out messages are counted separately in the progress display so you can see how many were skipped by the keyword.
+
 ---
 
 ## Configuration
