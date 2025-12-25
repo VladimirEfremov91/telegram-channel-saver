@@ -262,19 +262,29 @@ class ChannelSaver:
                         filter_input = input("\nEnter keyword to filter messages (leave blank to save all): ")
                         return filter_input.strip() or None
 
+                    def prompt_media_preferences():
+                        photo_choice = input("Download photos? (Y/n): ").strip().lower()
+                        video_choice = input("Download videos? (Y/n): ").strip().lower()
+                        download_photos = photo_choice != 'n'
+                        download_videos = video_choice != 'n'
+                        return download_photos, download_videos
+
                     dl_choice = input("\nEnter choice (1-5): ")
                     
                     if dl_choice == '1':
                         limit = input("\nEnter number of messages to save (or press Enter for all): ")
                         limit = int(limit) if limit.strip() else None
                         filter_word = prompt_filter_word()
+                        download_photos, download_videos = prompt_media_preferences()
                         await save_channel_messages(
                             self.client,
                             self.db,
                             self.db_path,
                             limit=limit,
                             force_redownload=False,
-                            filter_word=filter_word
+                            filter_word=filter_word,
+                            download_photos=download_photos,
+                            download_videos=download_videos
                         )
                     elif dl_choice == '2':
                         confirm = input("\nThis will redownload all messages. Continue? (y/N): ").lower()
@@ -282,13 +292,16 @@ class ChannelSaver:
                             limit = input("\nEnter number of messages to save (or press Enter for all): ")
                             limit = int(limit) if limit.strip() else None
                             filter_word = prompt_filter_word()
+                            download_photos, download_videos = prompt_media_preferences()
                             await save_channel_messages(
                                 self.client,
                                 self.db,
                                 self.db_path,
                                 limit=limit,
                                 force_redownload=True,
-                                filter_word=filter_word
+                                filter_word=filter_word,
+                                download_photos=download_photos,
+                                download_videos=download_videos
                             )
                     elif dl_choice == '3':
                         count = input("\nEnter number of recent messages to download: ")
@@ -298,12 +311,15 @@ class ChannelSaver:
                                 print("\nPlease enter a positive number")
                                 continue
                             filter_word = prompt_filter_word()
+                            download_photos, download_videos = prompt_media_preferences()
                             await save_channel_messages(
                                 self.client,
                                 self.db,
                                 self.db_path,
                                 recent_count=count,
-                                filter_word=filter_word
+                                filter_word=filter_word,
+                                download_photos=download_photos,
+                                download_videos=download_videos
                             )
                         except ValueError:
                             print("\nPlease enter a valid number")
@@ -321,6 +337,7 @@ class ChannelSaver:
                             force = input("Force redownload existing messages? (y/N): ").lower() == 'y'
 
                             filter_word = prompt_filter_word()
+                            download_photos, download_videos = prompt_media_preferences()
                             
                             await save_channel_messages(
                                 self.client,
@@ -330,7 +347,9 @@ class ChannelSaver:
                                 max_id=max_id, 
                                 limit=limit,
                                 force_redownload=force,
-                                filter_word=filter_word
+                                filter_word=filter_word,
+                                download_photos=download_photos,
+                                download_videos=download_videos
                             )
                         except ValueError:
                             print("\nPlease enter valid message IDs (numbers only)")
